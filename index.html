@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cardborne Roguelike</title>
+  <style>
+    :root {
+      --bg: #10141d;
+      --panel: #171d29;
+      --panel-2: #1d2635;
+      --text: #edf2ff;
+      --muted: #a8b1c7;
+      --accent: #86efac;
+      --accent-2: #7dd3fc;
+      --danger: #fca5a5;
+      --gold: #facc15;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(125,211,252,0.18), transparent 30%),
+        linear-gradient(180deg, #0b1018, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    #game {
+      width: min(1100px, 100%);
+      min-height: 720px;
+      background: rgba(14, 18, 28, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 20px 55px var(--shadow);
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      padding: 18px 22px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .hud {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(29,38,53,0.92), rgba(17,22,31, 0.95));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .player-box, .enemy-box {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .name-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .name {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: rgba(134,239,172,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(134,239,172,0.25);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.04);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .bar-wrap {
+      background: rgba(255,255,255,0.05);
+      border-radius: 999px;
+      height: 16px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .bar {
+      height: 100%;
+      border-radius: inherit;
+      transition: width 0.25s ease;
+    }
+
+    .hp { background: linear-gradient(90deg, #f87171, #fb7185); }
+    .xp { background: linear-gradient(90deg, #60a5fa, #7dd3fc); }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-weight: 700;
+      background: linear-gradient(180deg, #2b3b52, #1d2b3f);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: transform 0.12s ease, filter 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.04);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .primary {
+      background: linear-gradient(180deg, #2d8f72, #1f6a5b);
+      border-color: rgba(134,239,172,0.2);
+    }
+
+    .secondary {
+      background: linear-gradient(180deg, #2e3353, #222842);
+    }
+
+    .danger {
+      background: linear-gradient(180deg, #713f46, #4b1d2a);
+      border-color: rgba(252,165,165,0.25);
+    }
+
+    .log {
+      margin-top: 18px;
+      min-height: 220px;
+      max-height: 220px;
+      overflow: auto;
+      background: rgba(0,0,0,0.15);
+      border-radius: 10px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .log-entry {
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(255,255,255,0.08);
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .card-picker {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 14, 0.8);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+    }
+
+    .card-picker.visible {
+      display: flex;
+    }
+
+    .card-panel {
+      width: min(980px, 100%);
+      background: linear-gradient(180deg, rgba(18,25,35,0.98), rgba(11,15,20,0.98));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.38);
+    }
+
+    .card-picker h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.4rem, 2vw, 2rem);
+      letter-spacing: 0.02em;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(29,38,53,0.92), rgba(17,22,31,0.96));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px 14px 16px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.14s ease, border-color 0.14s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(125,211,252,0.32);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .card-name {
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+
+    .tag {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(125,211,252,0.1);
+      border: 1px solid rgba(125,211,252,0.2);
+      color: var(--accent-2);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .card-text {
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.96rem;
+      min-height: 72px;
+    }
+
+    @media (max-width: 760px) {
+      .hud {
+        grid-template-columns: 1fr;
+      }
+
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div class="topbar">
+      <div>Cardborne Roguelike</div>
+      <div id="floorLabel">Floor 1</div>
+    </div>
+
+    <div class="hud">
+      <div class="panel player-box">
+        <div class="name-row">
+          <div class="name" id="playerName">Warden</div>
+          <div class="badge" id="playerLevelBadge">Lv. 1</div>
+        </div>
+
+        <div class="bar-wrap">
+          <div class="bar hp" id="playerHpBar" style="width:100%"></div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="label">Health</div>
+            <div class="value" id="playerHealth">30 / 30</div>
+          </div>
+          <div class="stat">
+            <div class="label">Attack</div>
+            <div class="value" id="playerAttack">8</div>
+          </div>
+          <div class="stat">
+            <div class="label">Armor</div>
+            <div class="value" id="playerArmor">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Crit</div>
+            <div class="value" id="playerCrit">8%</div>
+          </div>
+          <div class="stat">
+            <div class="label">Dodge</div>
+            <div class="value" id="playerDodge">4%</div>
+          </div>
+          <div class="stat">
+            <div class="label">Gold</div>
+            <div class="value" id="playerGold">0</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 8px;">
+          <div class="label">XP to Next</div>
+          <div class="bar-wrap" style="margin-top: 6px;">
+            <div class="bar xp" id="xpBar" style="width:0%"></div>
+          </div>
+          <div style="margin-top: 6px; color: var(--muted);" id="xpText">0 / 12 XP</div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="attackBtn">Attack</button>
+          <button class="secondary" id="defendBtn">Defend</button>
+          <button class="secondary" id="restBtn">Recover</button>
+          <button class="danger" id="restartBtn">Restart</button>
+        </div>
+      </div>
+
+      <div class="panel enemy-box">
+        <div class="name-row">
+          <div class="name" id="enemyName">Enemy</div>
+          <div class="badge" id="enemyType">Beast</div>
+        </div>
+
+        <div class="bar-wrap">
+          <div class="bar hp" id="enemyHpBar" style="width:100%"></div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="label">Health</div>
+            <div class="value" id="enemyHealth">0 / 0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Attack</div>
+            <div class="value" id="enemyAttack">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Armor</div>
+            <div class="value" id="enemyArmor">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Reward</div>
+            <div class="value" id="enemyReward">0 Gold</div>
+          </div>
+        </div>
+
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-picker" id="cardPicker">
+    <div class="card-panel">
+      <h2>Choose a card</h2>
+      <div class="card-grid" id="cardGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    const cardPicker = document.getElementById('cardPicker');
+    const cardGrid = document.getElementById('cardGrid');
+    const logEl = document.getElementById('log');
+
+    const BUILT_IN_CARDS = [
+      card("Feral Claw", "Attack", p => { p.attack += 2; }),
+      card("Iron Skin", "Defense", p => { p.armor += 2; p.maxHealth += 6; p.health = Math.min(p.maxHealth, p.health + 6); }),
+      card("Quick Step", "Utility", p => { p.dodge += 0.04; p.attack += 1; }),
+      card("Brass Charm", "Utility", p => { p.crit += 0.03; p.attack += 1; }),
+      card("Harvest Bloom", "Sustain", p => { p.maxHealth += 8; p.health += 8; }),
+      card("Stone Heart", "Defense", p => { p.armor += 3; }),
+      card("Sharpened Teeth", "Attack", p => { p.attack += 3; }),
+      card("Glass Mirage", "Utility", p => { p.dodge += 0.06; }),
+      card("Sunlit Sigil", "Utility", p => { p.crit += 0.04; }),
+      card("Dawn Guard", "Defense", p => { p.armor += 2; p.maxHealth += 10; p.health = Math.min(p.maxHealth, p.health + 10); }),
+      card("Raging Hilt", "Attack", p => { p.attack += 2; p.crit += 0.02; }),
+      card("Storm Tread", "Utility", p => { p.dodge += 0.03; p.attack += 2; }),
+      card("Wild Reprieve", "Sustain", p => { p.maxHealth += 10; p.health += 10; p.armor += 1; }),
+      card("Gilded Aim", "Attack", p => { p.attack += 3; p.crit += 0.02; }),
+      card("Rooted Resolve", "Defense", p => { p.armor += 2; p.maxHealth += 12; p.health = Math.min(p.maxHealth, p.health + 12); }),
+      card("Raven's Eye", "Utility", p => { p.crit += 0.05; }),
+      card("Ember Pulse", "Attack", p => { p.attack += 2; p.maxHealth += 5; p.health = Math.min(p.maxHealth, p.health + 5); }),
+      card("Shielding Oath", "Defense", p => { p.armor += 3; p.maxHealth += 8; p.health = Math.min(p.maxHealth, p.health + 8); }),
+      card("Mothwing Step", "Utility", p => { p.dodge += 0.05; p.crit += 0.01; }),
+      card("Mercy of Stone", "Sustain", p => { p.maxHealth += 16; p.health += 12; }),
+      card("Molten Edge", "Attack", p => { p.attack += 4; }),
+      card("Lantern Guard", "Defense", p => { p.armor += 2; p.maxHealth += 7; p.health = Math.min(p.maxHealth, p.health + 7); }),
+      card("Rune of Haste", "Utility", p => { p.dodge += 0.04; p.attack += 2; }),
+      card("Hush of Ash", "Utility", p => { p.crit += 0.04; p.armor += 1; }),
+      card("Wisdom of Roots", "Sustain", p => { p.maxHealth += 12; p.health += 10; }),
+      card("Ashen Caller", "Attack", p => { p.attack += 3; p.crit += 0.03; }),
+      card("Cinder Veil", "Defense", p => { p.armor += 3; p.maxHealth += 9; p.health = Math.min(p.maxHealth, p.health + 9); }),
+      card("Silent Rush", "Utility", p => { p.attack += 2; p.dodge += 0.03; }),
+      card("Gale Thread", "Utility", p => { p.dodge += 0.06; }),
+      card("Moonlit Whisper", "Utility", p => { p.crit += 0.05; p.attack += 1; }),
+      card("Briarweight", "Defense", p => { p.armor += 4; p.maxHealth += 6; p.health = Math.min(p.maxHealth, p.health + 6); }),
+      card("Cracked Crescent", "Attack", p => { p.attack += 5; }),
+      card("Velvet Guard", "Defense", p => { p.armor += 3; }),
+      card("Blinking Ink", "Utility", p => { p.dodge += 0.07; }),
+      card("Flickering Light", "Sustain", p => { p.maxHealth += 15; p.health += 10; p.crit += 0.01; }),
+      card("Razor Pronounce", "Attack", p => { p.attack += 3; }),
+      card("Mossbound Relic", "Defense", p => { p.armor += 2; p.maxHealth += 14; p.health = Math.min(p.maxHealth, p.health + 14); }),
+      card("Orbital Echo", "Utility", p => { p.crit += 0.06; }),
+      card("Aegis Thread", "Defense", p => { p.armor += 4; p.maxHealth += 8; p.health = Math.min(p.maxHealth, p.health + 8); }),
+      card("Tidecall Step", "Utility", p => { p.dodge += 0.05; p.attack += 1; }),
+      card("Bonebreaker", "Attack", p => { p.attack += 4; p.maxHealth += 4; p.health = Math.min(p.maxHealth, p.health + 4); }),
+      card("Morning Vow", "Sustain", p => { p.maxHealth += 18; p.health += 12; }),
+      card("Pearl Guard", "Defense", p => { p.armor += 3; p.maxHealth += 10; p.health = Math.min(p.maxHealth, p.health + 10); }),
+      card("Hawk Eye", "Utility", p => { p.crit += 0.06; p.attack += 1; }),
+      card("Cinder Rook", "Attack", p => { p.attack += 2; p.crit += 0.04; }),
+      card("Gilded Scales", "Defense", p => { p.armor += 2; p.maxHealth += 12; p.health = Math.min(p.maxHealth, p.health + 12); }),
+      card("Silver Patrol", "Utility", p => { p.dodge += 0.04; p.attack += 1; }),
+      card("Severing Bell", "Attack", p => { p.attack += 3; }),
+      card("Driftglass", "Utility", p => { p.dodge += 0.08; }),
+      card("Kindle Spark", "Attack", p => { p.attack += 2; p.crit += 0.03; }),
+      card("Plated Will", "Defense", p => { p.armor += 5; }),
+      card("Talon's Worth", "Attack", p => { p.attack += 4; }),
+      card("Quiet Mercy", "Sustain", p => { p.maxHealth += 16; p.health += 14; }),
+      card("Hollow Relay", "Utility", p => { p.crit += 0.03; p.dodge += 0.03; }),
+      card("Strider's Oath", "Utility", p => { p.attack += 2; p.dodge += 0.05; }),
+      card("Blessed Lantern", "Sustain", p => { p.maxHealth += 15; p.health += 12; p.armor += 1; }),
+      card("Ember Step", "Utility", p => { p.attack += 2; p.dodge += 0.04; }),
+      card("Might of Clay", "Defense", p => { p.armor += 3; p.maxHealth += 12; p.health = Math.min(p.maxHealth, p.health + 12); }),
+      card("Sunder Sigil", "Attack", p => { p.attack += 3; p.crit += 0.02; }),
+      card("Thorn Chain", "Defense", p => { p.armor += 4; }),
+      card("Pale Echo", "Utility", p => { p.crit += 0.04; p.attack += 1; }),
+      card("Acorn Step", "Utility", p => { p.dodge += 0.05; p.armor += 1; }),
+      card("Warden's Edge", "Attack", p => { p.attack += 4; p.crit += 0.02; }),
+      card("Flint Resolve", "Defense", p => { p.armor += 3; p.maxHealth += 10; p.health = Math.min(p.maxHealth, p.health + 10); }),
+      card("Crescent Step", "Utility", p => { p.dodge += 0.06; p.attack += 1; }),
+      card("Hearth Mending", "Sustain", p => { p.maxHealth += 14; p.health += 14; }),
+      card("Vortex Thread", "Utility", p => { p.crit += 0.05; p.attack += 2; }),
+      card("Dread Spiral", "Attack", p => { p.attack += 5; }),
+      card("Oaken Shell", "Defense", p => { p.armor += 4; p.maxHealth += 8; p.health = Math.min(p.maxHealth, p.health + 8); }),
+      card("Skyline Stance", "Utility", p => { p.dodge += 0.05; p.crit += 0.01; }),
+      card("Marten's Grace", "Utility", p => { p.dodge += 0.07; }),
+      card("Solstice Pulse", "Attack", p => { p.attack += 3; p.maxHealth += 4; p.health = Math.min(p.maxHealth, p.health + 4); }),
+      card("Crimson Vow", "Attack", p => { p.attack += 3; p.crit += 0.03; }),
+      card("Iron Bloom", "Defense", p => { p.armor += 2; p.maxHealth += 15; p.health = Math.min(p.maxHealth, p.health + 15); }),
+      card("Nightglow Relic", "Sustain", p => { p.maxHealth += 16; p.health += 12; p.crit += 0.02; }),
+      card("Wisp Runner", "Utility", p => { p.dodge += 0.08; }),
+      card("Axe of Echoes", "Attack", p => { p.attack += 4; }),
+      card("Watcher's Ward", "Defense", p => { p.armor += 3; p.maxHealth += 11; p.health = Math.min(p.maxHealth, p.health + 11); }),
+      card("Murmur of Winds", "Utility", p => { p.dodge += 0.04; p.attack += 2; }),
+      card("Bright Spine", "Attack", p => { p.attack += 2; p.crit += 0.05; }),
+      card("Staggering Tide", "Utility", p => { p.attack += 2; p.dodge += 0.03; }),
+      card("Last Ember", "Attack", p => { p.attack += 3; p.crit += 0.04; }),
+      card("Stone of Recall", "Defense", p => { p.armor += 4; p.maxHealth += 10; p.health = Math.min(p.maxHealth, p.health + 10); }),
+      card("Rattle of Leaves", "Utility", p => { p.dodge += 0.05; p.attack += 1; }),
+      card("Living Guard", "Sustain", p => { p.maxHealth += 18; p.health += 16; }),
+      card("Violet Drift", "Utility", p => { p.crit += 0.04; p.dodge += 0.03; }),
+      card("Dagger of Noon", "Attack", p => { p.attack += 4; }),
+      card("Blackwood Shell", "Defense", p => { p.armor += 3; p.maxHealth += 12; p.health = Math.min(p.maxHealth, p.health + 12); }),
+      card("Crown of Air", "Utility", p => { p.dodge += 0.06; p.crit += 0.01; }),
+      card("Ritual Grip", "Attack", p => { p.attack += 3; p.maxHealth += 5; p.health = Math.min(p.maxHealth, p.health + 5); }),
+      card("Wick of Memory", "Sustain", p => { p.maxHealth += 20; p.health += 14; p.armor += 1; }),
+      card("Knell of Iron", "Attack", p => { p.attack += 4; }),
+      card("Sable Choir", "Utility", p => { p.crit += 0.06; }),
+      card("Oakbound Ward", "Defense", p => { p.armor += 5; p.maxHealth += 8; p.health = Math.min(p.maxHealth, p.health + 8); }),
+      card("Threadbare Grace", "Utility", p => { p.dodge += 0.05; p.attack += 1; }),
+      card("Harbor Flame", "Attack", p => { p.attack += 3; p.crit += 0.03; }),
+      card("Hale Resolve", "Sustain", p => { p.maxHealth += 17; p.health += 17; p.armor += 1; }),
+      card("Tenebrous Step", "Utility", p => { p.dodge += 0.07; p.crit += 0.02; }),
+      card("Glass Spine", "Defense", p => { p.armor += 2; p.maxHealth += 14; p.health = Math.min(p.maxHealth, p.health + 14); }),
+      card("Spiral Haze", "Utility", p => { p.crit += 0.05; p.attack += 1; }),
+      card("Lionheart Nocturne", "Attack", p => { p.attack += 5; })
+    ];
+
+    function card(name, type, fn) {
+      return { name, type, apply: fn };
+    }
+
+    const CARD_LIBRARY = BUILT_IN_CARDS;
+
+    const state = {
+      player: null,
+      enemy: null,
+      floor: 1,
+      over: false,
+      activePicker: false,
+      battleLog: [],
+      currentLevelUpChoices: [],
+      cardPool: [...CARD_LIBRARY]
+    };
+
+    function log(msg) {
+      state.battleLog.unshift(msg);
+      if (state.battleLog.length > 14) state.battleLog.pop();
+      logEl.innerHTML = state.battleLog.map(line => `<div class="log-entry">${line}</div>`).join('');
+    }
+
+    function createPlayer() {
+      return {
+        name: "Warden",
+        level: 1,
+        xp: 0,
+        xpToNext: 12,
+        health: 30,
+        maxHealth: 30,
+        attack: 8,
+        armor: 0,
+        crit: 0.08,
+        dodge: 0.04,
+        gold: 0,
+        cards: []
+      };
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function enemyTemplateForFloor(floor) {
+      const base = [
+        { name: "Cinder Wolf", type: "Beast", health: 18 + floor * 3, attack: 5 + floor * 1.2, armor: 0 + floor * 0.25, reward: 5 + floor },
+        { name: "Bandit Cutthroat", type: "Bandit", health: 20 + floor * 3.5, attack: 6 + floor * 1.3, armor: 1 + floor * 0.3, reward: 6 + floor },
+        { name: "Ash Cultist", type: "Cultist", health: 18 + floor * 3.2, attack: 7 + floor * 1.4, armor: 1 + floor * 0.35, reward: 7 + floor },
+        { name: "Mire Slime", type: "Slime", health: 22 + floor * 3.8, attack: 5 + floor * 1.1, armor: 0 + floor * 0.2, reward: 6 + floor },
+        { name: "Bone Knight", type: "Knight", health: 24 + floor * 4, attack: 7 + floor * 1.5, armor: 2 + floor * 0.42, reward: 8 + floor },
+        { name: "Silk Spider", type: "Spider", health: 16 + floor * 3, attack: 7 + floor * 1.5, armor: 1 + floor * 0.25, reward: 6 + floor },
+        { name: "Wraith Widow", type: "Wraith", health: 18 + floor * 3.4, attack: 8 + floor * 1.6, armor: 0 + floor * 0.28, reward: 7 + floor },
+        { name: "Ragnarok Brute", type: "Brute", health: 28 + floor * 4.6, attack: 8 + floor * 1.65, armor: 2 + floor * 0.45, reward: 9 + floor },
+        { name: "Hexblade Rogue", type: "Rogue", health: 19 + floor * 3.5, attack: 9 + floor * 1.7, armor: 1 + floor * 0.4, reward: 8 + floor }
+      ];
+      return base[Math.floor(Math.random() * base.length)];
+    }
+
+    function generateEnemy() {
+      const template = enemyTemplateForFloor(state.floor);
+      const enemy = {
+        ...template,
+        maxHealth: Math.round(template.health),
+        health: Math.round(template.health),
+        attack: Math.round(template.attack),
+        armor: Math.round(template.armor),
+        reward: Math.round(template.reward),
+        alive: true
+      };
+      return enemy;
+    }
+
+    function updatePlayerHud() {
+      const p = state.player;
+      document.getElementById('playerName').textContent = p.name;
+      document.getElementById('playerLevelBadge').textContent = `Lv. ${p.level}`;
+      document.getElementById('playerHealth').textContent = `${Math.ceil(p.health)} / ${p.maxHealth}`;
+      document.getElementById('playerAttack').textContent = `${p.attack}`;
+      document.getElementById('playerArmor').textContent = `${p.armor}`;
+      document.getElementById('playerCrit').textContent = `${Math.round(p.crit * 100)}%`;
+      document.getElementById('playerDodge').textContent = `${Math.round(p.dodge * 100)}%`;
+      document.getElementById('playerGold').textContent = `${p.gold}`;
+
+      const hpPct = clamp((p.health / p.maxHealth) * 100, 0, 100);
+      document.getElementById('playerHpBar').style.width = `${hpPct}%`;
+
+      const xpPct = clamp((p.xp / p.xpToNext) * 100, 0, 100);
+      document.getElementById('xpBar').style.width = `${xpPct}%`;
+      document.getElementById('xpText').textContent = `${p.xp} / ${p.xpToNext} XP`;
+
+      document.getElementById('floorLabel').textContent = `Floor ${state.floor}`;
+    }
+
+    function updateEnemyHud() {
+      const e = state.enemy;
+      if (!e) return;
+      document.getElementById('enemyName').textContent = e.name;
+      document.getElementById('enemyType').textContent = e.type;
+      document.getElementById('enemyHealth').textContent = `${Math.ceil(e.health)} / ${e.maxHealth}`;
+      document.getElementById('enemyAttack').textContent = `${e.attack}`;
+      document.getElementById('enemyArmor').textContent = `${e.armor}`;
+      document.getElementById('enemyReward').textContent = `${e.reward} Gold`;
+
+      const hpPct = clamp((e.health / e.maxHealth) * 100, 0, 100);
+      document.getElementById('enemyHpBar').style.width = `${hpPct}%`;
+    }
+
+    function refreshHud() {
+      updatePlayerHud();
+      updateEnemyHud();
+    }
+
+    function chooseRandomCards(count = 3) {
+      const pool = [...state.cardPool];
+      const choices = [];
+      for (let i = 0; i < count; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        choices.push(pool.splice(idx, 1)[0]);
+      }
+      return choices;
+    }
+
+    function openCardPicker() {
+      state.activePicker = true;
+      cardPicker.classList.add('visible');
+      const cards = chooseRandomCards(3);
+      state.currentLevelUpChoices = cards;
+
+      cardGrid.innerHTML = cards.map(card => `
+        <button class="card" data-name="${card.name}">
+          <div class="card-header">
+            <div class="card-name">${card.name}</div>
+            <div class="tag">${card.type}</div>
+          </div>
+          <div class="card-text">${describeCard(card)}</div>
+        </button>
+      `).join('');
+
+      cardGrid.querySelectorAll('.card').forEach(button => {
+        button.addEventListener('click', () => {
+          const chosen = state.currentLevelUpChoices.find(c => c.name === button.dataset.name);
+          if (!chosen) return;
+
+          chosen.apply(state.player);
+          state.player.cards.push(chosen.name);
+          state.cardPool = state.cardPool.filter(card => card.name !== chosen.name);
+          state.activePicker = false;
+          cardPicker.classList.remove('visible');
+          log(`You picked <b>${chosen.name}</b>.`);
+          refreshHud();
+          beginFloor();
+        });
+      });
+    }
+
+    function describeCard(card) {
+      switch (card.type) {
+        case "Attack": return "+ attack and/or crit based power.";
+        case "Defense": return "+ armor and survivability.";
+        case "Utility": return "+ speed, dodge, or burst precision.";
+        case "Sustain": return "+ health and steady recovery.";
+        default: return "A strange effect.";
+      }
+    }
+
+    function gainXP(amount) {
+      state.player.xp += amount;
+      log(`You gain ${amount} XP.`);
+
+      while (state.player.xp >= state.player.xpToNext) {
+        state.player.xp -= state.player.xpToNext;
+        state.player.level += 1;
+        state.player.xpToNext = Math.round(state.player.xpToNext * 1.22);
+        log(`Level up! You are now level ${state.player.level}.`);
+        openCardPicker();
+        return;
+      }
+      refreshHud();
+    }
+
+    function attackEnemy() {
+      if (!state.enemy || state.over || state.activePicker) return;
+      const p = state.player;
+      const enemy = state.enemy;
+
+      let damage = p.attack;
+      const critChance = Math.random();
+      const crit = critChance < p.crit;
+      if (crit) {
+        damage *= 2;
+        log(`Critical hit!`);
+      }
+
+      damage = Math.max(1, Math.round(damage - enemy.armor * 0.7));
+      enemy.health -= damage;
+      log(`${p.name} hits ${enemy.name} for ${damage}.`);
+
+      if (enemy.health <= 0) {
+        enemy.health = 0;
+        state.enemy.alive = false;
+        const reward = enemy.reward;
+        p.gold += reward;
+        log(`${enemy.name} falls. You gain ${reward} gold.`);
+        gainXP(Math.max(4, Math.round((state.floor * 2.5) + 3)));
+        state.floor += 1;
+        refreshHud();
+        beginFloor();
+        return;
+      }
+
+      enemyTurn();
+    }
+
+    function defend() {
+      if (!state.enemy || state.over || state.activePicker) return;
+      const p = state.player;
+      const block = Math.max(0, Math.round(p.armor * 0.9 + 3));
+      p.health = Math.min(p.maxHealth, p.health + block);
+      log(`${p.name} braces and gains ${block} guard.`);
+      enemyTurn();
+    }
+
+    function recover() {
+      if (!state.enemy || state.over || state.activePicker) return;
+      const p = state.player;
+      const amt = Math.min(p.maxHealth * 0.28, 6 + p.level);
+      p.health = Math.min(p.maxHealth, p.health + amt);
+      log(`${p.name} recovers ${Math.round(amt)} health.`);
+      enemyTurn();
+    }
+
+    function enemyTurn() {
+      const p = state.player;
+      const enemy = state.enemy;
+
+      if (!enemy || enemy.health <= 0) return;
+
+      let dodgeRoll = Math.random();
+      if (dodgeRoll < p.dodge) {
+        log(`${p.name} dodges the attack!`);
+        return;
+      }
+
+      let hit = Math.max(1, enemy.attack - Math.round(p.armor * 0.7));
+      const reduced = Math.max(1, hit - Math.round(p.armor * 0.4));
+      p.health -= reduced;
+      log(`${enemy.name} hits for ${reduced}.`);
+
+      if (p.health <= 0) {
+        p.health = 0;
+        state.over = true;
+        log(`You were defeated on floor ${state.floor}. Press Restart to try again.`);
+        refreshHud();
+      }
+    }
+
+    function beginFloor() {
+      state.enemy = generateEnemy();
+      refreshHud();
+      log(`A wild ${state.enemy.name} appears.`);
+    }
+
+    function newGame() {
+      state.player = createPlayer();
+      state.floor = 1;
+      state.over = false;
+      state.cardPool = [...CARD_LIBRARY];
+      state.battleLog = [];
+      logEl.innerHTML = "";
+      beginFloor();
+      refreshHud();
+      log(`The dungeon begins. Choose your cards wisely.`);
+    }
+
+    document.getElementById('attackBtn').addEventListener('click', attackEnemy);
+    document.getElementById('defendBtn').addEventListener('click', defend);
+    document.getElementById('restBtn').addEventListener('click', recover);
+    document.getElementById('restartBtn').addEventListener('click', newGame);
+
+    newGame();
+  </script>
+</body>
+</html>
